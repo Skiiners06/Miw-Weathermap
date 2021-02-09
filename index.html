@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIW WeatherMap</title>
+    <meta name="description"
+        content="Données météo en temps réel depuis la première communauté de stations météo personnelles au monde.">
+    <link rel="icon" type="img/x-icon" href="img/favicon.ico">
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/halfmoon@1.1.1/css/halfmoon-variables.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+        integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+        crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+        integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+        crossorigin=""></script>
+</head>
+
+<body class="with-custom-webkit-scrollbars with-custom-css-scrollbars" data-set-preferred-mode-onload="true">
+
+    <div id="app" class="page-wrapper with-navbar with-sidebar" data-sidebar-shortcut-enabled="true"
+        data-sidebar-hidden="hidden">
+
+        <nav class="navbar bg-primary-lm justify-content-between">
+            <div class="navbar-content">
+                <button id="toggle-sidebar-btn" aria-label="Déployer la sidebar" class="btn btn-action" type="button"
+                    @click="toggleSidebar">
+                    <i class="fa fa-bars" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="navbar-content">
+                <span class="font-size-16 navbar-brand text-uppercase text-white-lm">
+                    MIW WheatherMap
+                </span>
+            </div>
+
+            <div class="navbar-content">
+                <div class="dropdown with-arrow">
+                    <button class="btn" data-toggle="dropdown" type="button" id="..." aria-haspopup="true"
+                        aria-expanded="false" aria-label="Afficher les paramètres">
+                        <i class="fa fa-cog"></i> <i class="fa fa-angle-down ml-5" aria-hidden="true"></i>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-right" aria-labelledby="...">
+                        <span class="dropdown-item text-center">Thème sombre</span>
+                        <div class="dropdown-content text-center">
+                            <button type="button" @click="toggleDarkMode" aria-label="Activer le dark mode"
+                                class="btn btn-action"><i aria-hidden="true" class="fa fa-moon-o"></i></button>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <span class="dropdown-item text-center">Map sombre</span>
+                        <div class="dropdown-content text-center">
+                            <button type="button" @click="toggleDarkMap" aria-label="Activer le dark mode"
+                                class="btn btn-action"><i aria-hidden="true" class="fa fa-map-marker"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="sidebar">
+            <div class="sidebar-menu mt-10 mb-0">
+                <div class="input-group px-10">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="fa fa-search"></i></span>
+                    </div>
+                    <input v-model="search" id="autocomplete" type="text" class="form-control"
+                        placeholder="zone géographique" aria-label="Saisir une adresse">
+                </div>
+            </div>
+            <div class="sidebar-menu list mt-10">
+                <h5 class="sidebar-title">
+                    Resultat
+                </h5>
+                <div class="sidebar-divider"></div>
+                <div class="overflow-x-hidden mh-500 overflow-y-scroll">
+                    <span v-for="ville in villeResult" v-on:click="moveToAddress(ville)"
+                        class="sidebar-link px-5 pl-10">{{ ville.display_name }}</span>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="content-wrapper position-relative z-0">
+            <div id="map"></div>
+            <div class="alert position-absolute bottom-0 right-0 z-500" role="alert">
+                <h4 class="alert-heading">Données moyennes de la zone</h4>
+                {{ isNaN(averageTemp) ? 'aucune donnée': 'température : ' +
+                parseFloat(averageTemp).toFixed(2) +'°C humidité : ' + parseFloat(averageHumid).toFixed(2) + '%'}}
+            </div>
+        </div>
+
+        <div class="modal" id="modal-station" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <button class="close" data-dismiss="modal" type="button" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h5 class="modal-title"> {{ stationSelected?.place?.street != undefined ?
+                        stationSelected?.place?.street + ', ' : ''}}
+                        {{stationSelected?.place?.city != undefined ?
+                        stationSelected?.place?.city + ', ' : ''}}
+                        {{stationSelected?.place?.country}}</h5>
+
+                    <p class="d-flex justify-content-around">
+                        <span class="badge-group" role="group">
+                            <span class="badge">Altitude</span>
+                            <span class="badge badge-primary">{{ stationSelected?.place?.altitude}}</span>
+                        </span>
+
+                        <span class="badge-group" role="group">
+                            <span class="badge">Pression</span>
+                            <span class="badge badge-primary">{{ stationSelected?.measures?.pression }}
+                                mBar</span>
+                        </span>
+                    </p>
+
+                    <div class="dropdown-divider"></div>
+                    <div class="row">
+                        <div class="col-6">
+                            <p class="text-center mb-0"><span class="badge w-100">Température</span></p>
+                            <p class="text-center mt-0">
+                                <button class="btn btn-primary w-100" type="button">{{ stationSelected?.measures?.temp
+                                    }}°C</button>
+                            </p>
+
+                        </div>
+                        <div class="col-6">
+                            <p class="text-center mb-0"><span class="badge w-100">Humidité</span></p>
+                            <p class="text-center mt-0">
+                                <button class="btn btn-primary w-100" type="button">{{
+                                    stationSelected?.measures?.humidity }}
+                                    %</button>
+                            </p>
+
+                        </div>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <div class="text-right mt-20">
+                        <button class="btn mr-5 btn-success" data-dismiss="modal" type="button">Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/halfmoon@1.1.1/js/halfmoon.min.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>
