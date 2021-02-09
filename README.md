@@ -8,6 +8,17 @@ Le but de cette application est d'acceder via une adresse ou en se déplaçant s
 
 # Technologies utilisés  : 
 
+  - Leaflet
+  - Netatmo
+  - OpenStreetMap
+  - Halfmoon
+  - VueJS
+  - WebPack
+  - Babel
+  - Lodash
+  - Git / Github
+  - Postman
+
 # Lien de l'application : 
 
 https://skiiners06.github.io/Miw-Weathermap/
